@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+	<!--320-->
+	<meta name="HandheldFriendly" content="true" />
+	<!--Import Google Icon Font-->
+	<link href="https://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet" type="text/css">
+	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+	<!--Import materialize.css-->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.7/css/materialize.min.css">
+
+	<style>
+		#menu-collapse .collapsible-header {
+			background-color: #37474F;
+			color: white;
+		}
+		
+		.line-fix {
+			line-height: 18px !important;
+		}
+		
+		.line-fix a {
+			font-size: 0.85em;
+		}
+		
+		header,
+		main,
+		footer {
+			padding-left: 300px;
+		}
+		
+		@media only screen and (max-width: 992px) {
+			header,
+			main,
+			footer {
+				padding-left: 0;
+			}
+			html,
+			body {
+				max-width: 100%;
+				overflow-x: hidden;
+			}
+		}
+	</style>
+	<!--Let browser know website is optimized for mobile-->
+</head>
+
+<body>
+	<header class="navbar-fixed">
+		<nav>
+			<div class="nav-wrapper blue">
+				<a href="#" class="brand-logo" id="title">Mobile reader</a>
+				<a href="#" data-activates="mobile-demo" class="button-collapse"><i class="material-icons">menu</i></a>
+				<ul class="side-nav fixed" id="mobile-demo">
+					<li>
+						<ul class="collapsible chapters" data-collapsible="accordion" id="menu-collapse">
+							<li>
+								<div class="collapsible-header">Book #</div>
+								<div class="collapsible-body">
+									<ul>
+										<li><a href="#!" class="chapter">Chapter 1</a></li>
+									</ul>
+								</div>
+							</li>
+						</ul>
+					</li>
+				</ul>
+			</div>
+		</nav>
+	</header>
+
+	<main>
+		<section id="chapterTitle" class="blue darken-2">
+			<div class="row">
+				<div class="col s12">
+					<p class="white-text center-on-small-only" id="date"></p>
+				</div>
+			</div>
+		</section>
+		<div class="container">
+			<div class="progress">
+				<div class="indeterminate"></div>
+			</div>
+			<div id="chapterContent"></div>
+			<div class="fixed-action-btn horizontal click-to-toggle" style="bottom: 45px; right: 24px;" id="actionButtons">
+				<a class="btn-floating btn-large purple">
+					<i class="large material-icons">storage</i>
+				</a>
+				<ul>
+					<li><a class="btn-floating green"><i class="material-icons" id="btnToTop">publish</i></a></li>
+					<li><a class="btn-floating blue" id="btnSaveData"><i class="material-icons">save</i></a></li>
+				</ul>
+			</div>
+		</div>
+	</main>
+	<div id="savedDataModal" class="modal">
+		<div class="modal-content">
+			<h4>Saved Data Found</h4>
+			<p>Wanna recover last chapter and position?</p>
+		</div>
+		<div class="modal-footer">
+			<button class=" modal-action modal-close waves-effect waves-red btn-flat" id="btnRemoveSavedData">Delete Data</button>
+			<button class=" modal-action modal-close waves-effect waves-green btn-flat" id="btnGoSavedData">Go!</button>
+		</div>
+	</div>
+
+
+
+	<!--Import jQuery before materialize.js-->
+	<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.7/js/materialize.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.16.4/lodash.js"></script>
+
+	<script>
+      var chaptersComplete = [];
+    
+      $(function(){       
+        $(".progress").toggle();
+        $('.button-collapse').sideNav();
+        
+        $("#btnSaveData").click(function(e){
+          e.preventDefault();
+          
+          var position= $(window).scrollTop();
+          var book_chapter = window.localStorage.getItem('lastChapter');
+          
+          window.localStorage.setItem('saved_data', JSON.stringify({position: position, chapter: book_chapter}));
+          $('.fixed-action-btn').closeFAB();
+        });
+        
+        $("#btnToTop").click(function(e){
+          e.preventDefault();
+          
+          $("html, body").animate({ scrollTop: 0 }, "fast");
+          $('.fixed-action-btn').closeFAB();
+        });
+        
+        $("#btnGoSavedData").on("click", function(e){
+          e.preventDefault();
+          
+          
+          changeChapter(savedData.chapter, savedData.position); 
+          $('#savedDataModal').closeModal();
+        });
+         
+        $("#btnRemoveSavedData").on("click", function(e){
+          e.preventDefault();
+          
+          
+          window.localStorage.removeItem("saved_data"); 
+          $('#savedDataModal').closeModal();
+        });
+        
+        getTOC();
+        
+        var savedData = window.localStorage.getItem("saved_data");
+        savedData = JSON.parse(savedData) || undefined;
+        
+        if(savedData){
+          $('#savedDataModal').openModal();
+        }
+        
+        function getTOC(){
+          $.get('/TOC', function(chapters) {
+            chaptersComplete = chapters;
+            $('.chapters').empty();
+            
+              var groupedChapters = groupBy(chapters, 'bookNumber', 'volume','chapters')
+              $('.chapters').append($(getTocTemplate(groupedChapters)));
+            
+              
+            
+            $(".chapter").on("click", chapterClickHandler);
+            
+            $(".button-collapse").sideNav();
+            $('.collapsible').collapsible({
+              accordion : false // A setting that changes the collapsible behavior to expandable instead of the default accordion style
+            });
+          });
+        }
+        
+        function getTocTemplate(bookData){
+          var html =  '';
+          
+          for(var i=0; i <= bookData.length; i ++){
+            var book = bookData[i];
+            
+            if(book && book.volume != 0){
+            html += '<li>'
+            html += '<div class="collapsible-header">Book '+ book.volume +'</div>';
+            html += '<div class="collapsible-body">';
+            html += '<ul>';
+            for(var j = 0; j< book.chapters.length;j++){
+               var chapter = book.chapters[j];
+               
+               var title = chapter.title; 
+            
+                if(title.length < 3){
+                  title = chapter.link.split("/").pop();
+                  title = title.replaceAll(".html","").replaceAll("-"," ").replaceAll("_"," ");
+                }
+              
+               html += '<li class="line-fix"><a class="chapter" href="' + chapter.link + '">' + title + '</a>"</li>';
+            }
+            html += '</ul>'+'</div>'
+            html += '</li>';
+          }}
+          
+          return html;
+        }
+        
+        function groupBy(dataToGroupOn, fieldNameToGroupOn, fieldNameForGroupName, fieldNameForChildren) {
+            var result = _.chain(dataToGroupOn)
+             .groupBy(fieldNameToGroupOn)
+             .toPairs()
+             .map(function (currentItem) {
+                 return _.zipObject([fieldNameForGroupName, fieldNameForChildren], currentItem);
+             })
+             .value();
+            return result;
+        }
+        
+        var chapterClickHandler = function(event){
+            event.preventDefault();
+            
+            var me = $(this);
+            
+            var url = "/Chapter/" + encodeURIComponent(me.attr("href").replace(".html","").replace("http://",""));
+            window.localStorage.setItem("lastChapter", url);
+            window.localStorage.removeItem("saved_data");
+            
+            changeChapter(url, 0);
+          };
+        
+        var recoverSavedData = function(){
+          changeChapter(url, 0);
+        }
+          
+          var changeChapter = function(url, position){
+            $("#chapterContent").empty();
+            $(".button-collapse").sideNav("hide");
+            $("#sidenav-overlay").remove();
+            $("#sidenav-overlay").hide();
+            $(".progress").toggle();
+            
+            $.get(url, function(data){
+              
+              $("#title").html(data.title);
+              $("#date").html(data.date);
+              $("#chapterContent").html(data.content);
+              
+              $(".progress").toggle();
+              if(position) $("html, body").animate({ scrollTop: position }, "slow");
+            });
+          }
+
+          function savePositionData(){
+            var position= $(window).scrollTop();
+            var book_chapter = window.localStorage.getItem('lastChapter');
+          
+            window.localStorage.setItem('saved_data', JSON.stringify({position: position, chapter: book_chapter}));
+            displayToast("Saved...");
+        }
+
+          setInterval(savePositionData, 5000);
+
+
+          function diplayToast(message, duration){
+              duration = duration || 2500;
+
+            // Materialize.toast(message, displayLength, className, completeCallback);
+            Materialize.toast(message, duration) // 4000 is the duration of the toast
+          }
+      });
+    </script>
+
+</body>
+
+</html>
